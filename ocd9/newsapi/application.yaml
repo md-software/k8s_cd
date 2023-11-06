@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://gitlab.tech.orange/engineeringbigdata/k8s_cd.git
+    repoURL: https://github.com/md-software/k8s_cd/k8s_cd.git
     targetRevision: HEAD
     path: ocd9/newsapi/dev
   destination: 
