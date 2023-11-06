@@ -1,0 +1,163 @@
+apiVersion: v1
+data:
+  newsapi-kafka.py: "#!/usr/bin/env python3\n#\n# This script is used for POC pipeline\n#\n#
+    Read messages from Kafka topic and store them without transformation into postgresql
+    table\n#\nimport time\nimport requests\nfrom pprint import pprint\nimport argparse\nfrom
+    datetime import datetime\nnow = datetime.today().strftime('%Y-%m-%d')\n\nfrom
+    confluent_kafka import Producer\n\ndef delivery_report(err, msg):\n    \"\"\"
+    Called once for each message produced to indicate delivery result.\n        Triggered
+    by poll() or flush(). \"\"\"\n    if err is not None:\n        print('Message
+    delivery failed: {}'.format(err))\n    else:\n        print('Message delivered
+    to {} [{}]'.format(msg.topic(), msg.partition()))\n\nparser = argparse.ArgumentParser(\"[python]
+    ./newsapi.py\")\nparser.add_argument(\"-f\", \"--fromdate\", help=\"Date (yyyy-mm-dd)
+    first article to retrieve\", nargs='?', const=now, type=str)\nargs = parser.parse_args()\n#print(args)\n\napi_key
+    = \"ad9c2d56e0d94a64884139d5565ec019\"\n#url = \"https://newsapi.org/v2/top-headlines\"\nurl
+    = \"https://newsapi.org/v2/everything\"\n\n# Paramètres de requête pour récupérer
+    les articles sur un sujet donné\nparams = {\"q\": \"chatgpt\", \"from\": args.fromdate,
+    \"sortBy\": \"publishedAt\",\"apiKey\": api_key}\n#print(params)\n# https://newsapi.org/v2/everything?q=tesla&from=2023-02-12&sortBy=publishedAt\n\nwhile
+    True:\n        \n    # Faire la requête HTTP GET à l'API de NewsAPI\n    response
+    = requests.get(url, params=params)\n\n    # Vérifiez si la requête a réussi\n
+    \   if response.status_code == 200:\n        # Convertir la réponse JSON en objet
+    Python\n        data = response.json()\n\n        # Extraire les articles et les
+    afficher\n        articles = data[\"articles\"]\n        print(now, \"********\",
+    len(articles), \" articles ********\")\n        a = 0\n        for article in
+    articles:\n            #print(article['source'])\n            print('---------------------------------------------------------------------')\n
+    \           # print(article)\n            a += 1\n            try:\n                print(\"***\",
+    a, \"***\", article[\"source\"][\"Name\"])\n            except:\n                print(\"***\",
+    a, \"***\", article[\"source\"])\n            try:\n                print(\"Published
+    date:\", article[\"publishedAt\"])\n            except:\n                pass\n
+    \           s = article[\"title\"]\n\n            # Produce to Kafka\n            p
+    = Producer({'bootstrap.servers': 'kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9092'})\n\n
+    \           p.poll(0)\n\n            # Asynchronously produce a message. The delivery
+    report callback will\n            # be triggered from the call to poll() above,
+    or flush() below, when the\n            # message has been successfully delivered
+    or failed permanently.\n            p.produce('newsapi', str(article).encode('utf-8'),
+    callback=delivery_report)\n\n            # Wait for any outstanding messages to
+    be delivered and delivery report\n            # callbacks to be triggered.\n            p.flush()\n\n
+    \       print('---------------------------------------------------------------------')\n
+    \       time.sleep(60)\n    else:\n        print(\"Erreur de requête: \", response.status_code)\n
+    \       break\n"
+  newsapi_batch.py: |
+    import os
+    import glob
+    import datetime
+    from pyspark.sql import SparkSession
+    from pyspark.sql.functions import col, count
+
+    # Initialize a Spark session
+    spark = SparkSession.builder.appName("JSONAggregations").getOrCreate()
+
+    # Define the path to the directory containing the JSON files
+    json_data_path = "/tmp"
+
+    # List all JSON files in the directory
+    json_files = glob.glob(os.path.join(json_data_path, "batch_*.txt"))
+
+    print("#### number of json files: ", len(json_files))
+
+    try:
+        # Read JSON files into a DataFrame
+        json_df = spark.read.json(json_files)
+
+        # Show the schema of the DataFrame
+        json_df.printSchema()
+
+        # Perform some data transformations and aggregations
+        agg_result = json_df.groupBy("source.name").agg(
+            count("title").alias("count")#,
+            #sum("amount").alias("total_amount")
+        )
+
+        # Show the aggregated results in console
+        agg_result.show()
+
+        # Get the current datetime
+        current_datetime = datetime.datetime.now()
+
+        # Format the datetime as a string
+        formatted_datetime = current_datetime.strftime("%Y-%m-%d_%H:%M:%S")
+
+        # Save the result of agg_result.show() to a csv file
+        agg_result.write.mode("overwrite").format("csv").save(json_data_path+"/agg_newsapi_"+formatted_datetime)
+
+    except Exception as e:
+        # Handle the exception here, e.g., log the error
+        print(f"An error occurred: {str(e)}")
+
+    # Delete the processed files
+    for json_file in json_files:
+        os.remove(json_file)
+
+    # Stop the Spark session
+    spark.stop()
+  newsapi_stream.py: |
+    #!/usr/bin/env python3
+    #
+    # This script is used for POC pipeline
+    #
+    # Reads messages from Kafka topic and store them without transformation into postgresql table
+    #
+
+    from pyspark.sql import SparkSession
+    from pyspark.sql.functions import *
+
+
+    # Créer la session Spark
+    spark = SparkSession.builder \
+        .appName("newsapi_stream") \
+        .getOrCreate()
+
+    # Set Kafka log level to WARN
+    spark.sparkContext.setLogLevel("WARN")
+    spark.sparkContext._jvm.org.apache.log4j.LogManager.getLogger("org.apache.kafka").setLevel(spark.sparkContext._jvm.org.apache.log4j.Level.WARN)
+
+    # Configurer les propriétés Kafka
+    kafka_bootstrap_servers = "kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9092"
+    kafka_topic = "newsapi"
+
+    # Lire les données à partir de Kafka
+    df = spark \
+        .readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", kafka_bootstrap_servers) \
+        .option("subscribe", kafka_topic) \
+        .load()
+
+    # Sélectionner uniquement la colonne "value" du DataFrame
+    df = df.selectExpr("CAST(value AS STRING)")
+
+    # Define an output directory to write the messages to
+    output_directory = "/tmp"
+
+    # Define a function to process each batch of messages
+    def process_batch(batch_df, batch_id):
+        # for col in batch_df.dtypes:
+        #     print(col[0]+" , "+col[1])
+
+        # Convert the batch of messages to a list of strings
+        messages = batch_df.select("value").rdd.map(lambda r: r.value).collect()
+
+        # Process the messages as needed
+        # For example, you can write them to a file
+        with open(output_directory+f"/batch_{batch_id}.txt", "w") as file:
+            for message in messages:
+                print(batch_id, message)
+                file.write(message.replace("None", "null") + "\n")
+
+    # def process_batch(batch_df, batch_id):
+    #     # Perform any necessary transformations or aggregations on batch_df
+    #     processed_df = batch_df.cache()
+
+    #     # Write the processed DataFrame to the PostgreSQL table
+    #     processed_df.write \
+    #         .json(output_directory+f"/batch.txt")
+
+    # Write the messages using foreachBatch
+    df.writeStream \
+        .foreachBatch(lambda batch_df, batch_id: process_batch(batch_df, batch_id)) \
+        .start() \
+        .awaitTermination()
+kind: ConfigMap
+metadata:
+  name: configmap-newsapi
+  namespace: pipeline
