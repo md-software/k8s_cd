@@ -65,7 +65,7 @@ while True:
             s = article["title"]
 
             # Produce to Kafka
-            p = Producer({'bootstrap.servers': 'kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9092'})
+            p = Producer({'bootstrap.servers': 'kafka-controller-0.kafka.svc.cluster.local:9092,kafka-controller-1.kafka.svc.cluster.local:9092,kafka-controller-2.kafka.svc.cluster.local:9092'})
 
             p.poll(0)
 
