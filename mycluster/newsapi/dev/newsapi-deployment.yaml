@@ -1,0 +1,41 @@
+#
+# This manifest is used for POC pipeline
+#
+# Create deployment for newsapi test pipeline
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: newsapi
+  namespace: pipeline
+spec:
+  selector:
+    matchLabels:
+      app: newsapi
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: newsapi
+    spec:
+      containers:
+      - name: newsapi
+        image: heartysoft/alpine-confluent-kafka:python-3.6-latest
+        imagePullPolicy: "IfNotPresent"
+        command:
+        - python3
+        - /mnt/configmap/newsapi-kafka.py
+        volumeMounts:
+        - mountPath: /pipeline-data
+          name: pipeline-data
+        - name: "configmap-volume"
+          mountPath: "/mnt/configmap"
+      volumes:
+      - name: configmap-volume
+        configMap:
+          name: configmap-newsapi
+      - name: pipeline-data
+        persistentVolumeClaim:
+          claimName: spark-cephfs-pvc
+      imagePullSecrets:
+      - name: default-secret

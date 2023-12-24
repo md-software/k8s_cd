@@ -2,14 +2,14 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: newsapi-application
-  namespace: argocd
+  namespace: newsapi
 spec:
   project: default
 
   source:
     repoURL: https://github.com/md-software/k8s_cd.git
     targetRevision: HEAD
-    path: ocd9/newsapi/dev
+    path: mycluster/newsapi/dev
   destination: 
     server: https://kubernetes.default.svc
     #https://10.102.11.177:6443

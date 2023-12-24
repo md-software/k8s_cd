@@ -1,0 +1,29 @@
+# set persistence parameters
+persistence:
+  enabled: true
+  storageClass: "standard"
+  size: 10Gi
+
+# set number of desired kafka brokers
+replicaCount: 1
+
+# Enable topic deletion
+deleteTopicEnable: true
+
+listeners:
+  client:
+    containerPort: 9092
+    protocol: PLAINTEXT
+    name: CLIENT
+    sslClientAuth: ""
+
+metrics:
+  jmx:
+    enabled: true
+    jmxPort: 5995
+
+kraft:
+  enabled: true
+
+zookeeper:
+  enabled: false
