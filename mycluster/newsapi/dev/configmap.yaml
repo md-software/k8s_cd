@@ -27,7 +27,7 @@ data:
     a, \"***\", article[\"source\"])\n            try:\n                print(\"Published
     date:\", article[\"publishedAt\"])\n            except:\n                pass\n
     \           s = article[\"title\"]\n\n            # Produce to Kafka\n            p
-    = Producer({'bootstrap.servers': 'kafka-controller-0.kafka.svc.cluster.local:9092,kafka-controller-1.kafka.svc.cluster.local:9092,kafka-controller-2.kafka.svc.cluster.local:9092'})\n\n
+    = Producer({'bootstrap.servers': 'kafka-controller-0.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-1.kafka-controller-headless.kafka.svc.cluster.local:9092,kafka-controller-2.kafka-controller-headless.kafka.svc.cluster.local:9092'})\n\n
     \           p.poll(0)\n\n            # Asynchronously produce a message. The delivery
     report callback will\n            # be triggered from the call to poll() above,
     or flush() below, when the\n            # message has been successfully delivered
