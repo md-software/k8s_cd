@@ -32,5 +32,3 @@ spec:
       - name: configmap-volume
         configMap:
           name: configmap-newsapi
-      imagePullSecrets:
-      - name: default-secret
