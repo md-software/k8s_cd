@@ -160,4 +160,4 @@ data:
 kind: ConfigMap
 metadata:
   name: configmap-newsapi
-  namespace: pipeline
+  namespace: newsapi

@@ -7,7 +7,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: newsapi
-  namespace: pipeline
+  namespace: newsapi
 spec:
   selector:
     matchLabels:
@@ -26,16 +26,11 @@ spec:
         - python3
         - /mnt/configmap/newsapi-kafka.py
         volumeMounts:
-        - mountPath: /pipeline-data
-          name: pipeline-data
         - name: "configmap-volume"
           mountPath: "/mnt/configmap"
       volumes:
       - name: configmap-volume
         configMap:
           name: configmap-newsapi
-      - name: pipeline-data
-        persistentVolumeClaim:
-          claimName: spark-cephfs-pvc
       imagePullSecrets:
       - name: default-secret
